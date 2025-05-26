@@ -1,0 +1,8 @@
+# Ignore the data folder
+data/
+
+# Ignore the utils.py file
+utils.py
+
+# Ignore zip
+glamm_annotation_data.zip

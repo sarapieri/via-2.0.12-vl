@@ -1,6 +1,6 @@
 # 📌 VIA Annotator Extension for Visual Image Grounding
 
-This project is an extension of the [VGG Image Annotator (VIA)](https://www.robots.ox.ac.uk/~vgg/software/via/) V2 tailored for Visual Image Grounding tasks. It supports panoptic segmentation annotations with grounding labels and captions. All the logic is contained in via.html and flask_server.py. It's tailored to reannotate GLaMM PSG images but if reference to those annotations are removed can be used for any panoptic segmentation task.
+This project is an extension of the [VGG Image Annotator (VIA)](https://www.robots.ox.ac.uk/~vgg/software/via/) V2 tailored for Visual Image Grounding tasks. It supports panoptic segmentation annotations with grounding labels and captions. All the logic is contained in via.html and flask_server.py. It's tailored to re-annotate GLaMM PSG images, but if reference to those annotations is removed, it can be used for any panoptic segmentation task.
 
 
 ## 🚀 Getting Started

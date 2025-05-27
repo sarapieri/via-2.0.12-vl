@@ -1,6 +1,8 @@
 # 📌 VIA Annotator Extension for Visual Image Grounding
 
-This project is an extension of the [VGG Image Annotator (VIA)](https://www.robots.ox.ac.uk/~vgg/software/via/) V2 tailored for Visual Image Grounding tasks. It supports panoptic segmentation annotations with grounding labels and captions.
+This project is an extension of the [VGG Image Annotator (VIA)](https://www.robots.ox.ac.uk/~vgg/software/via/) V2 tailored for Visual Image Grounding tasks. It supports panoptic segmentation annotations with grounding labels and captions. All the logic is contained in via.html and flask_server.py. It's tailored to reannotate GLaMM PSG images but if reference to those annotations are removed can be used for any panoptic segmentation task.
+
+
 ## 🚀 Getting Started
 ### 🔧 Set Up the Environment
 ```bash
@@ -12,17 +14,13 @@ conda install -c anaconda numpy pillow matplotlib
 pip install pycocotools Flask flask-cors
 ```
 ### 📁 Required Files
-All required resources are included in the original ZIP file:
+All required resources are included in the original ZIP file (`glamm_annotation_data.zip`). 
+You can download the full dataset from the shared location (e.g., Google Drive): [Download from Google Drive](https://drive.google.com/file/d/14lP7lapSbMm-vFQuJR21VdozEdLhICjT/view?usp=sharing)  
 
-> ✅ The file `glamm_annotation_data.zip` contains the complete `data/` folder and must be **unzipped** before use.
-
-```bash
-zip -r glamm_annotation_data.zip data/
-```
-
-To unzip it:
+> The file `glamm_annotation_data.zip` contains the complete `data/` folder and must be **unzipped** (in 'via-2.0.12-vl') before use.
 
 ```bash
+cd via-2.0.12-vl
 unzip glamm_annotation_data.zip
 ```
 After unzipping, you should have the following structure:
@@ -83,7 +81,7 @@ http://localhost:8001/via.html
 
 2.  **Prepare Images:**
     *   Copy or move all images from your selected subset folder into the main `val_test` directory:
-        > `data/glamm_images/val_test/`
+        > `cp data/glamm_images/val_test/subset_i/* data/glamm_images/val_test/`
     *   If needed, replace any existing files in the `val_test/` directory.
 
     > ⚠️ **Important:** Do **not** attempt to annotate from multiple subsets simultaneously. Always ensure only one subset's images are present in `data/glamm_images/val_test/` at a time. This is for compatibility with other annotators. 
@@ -103,6 +101,9 @@ http://localhost:8001/via.html
     *   **Handling Previously Captioned Images:**
         *   The tool will show a warning if you load an image that has already been captioned.
         *   It will ask for confirmation before allowing you to overwrite existing captions.
+    *   **Useful to Know:**
+        *   Labels can be selected and de-selected (double click) to show the single masks.  
+        *   The Panoptic Overlay panel can be resized using the top arrows. 
 
 ## 💾 Output
 
@@ -114,7 +115,7 @@ Annotations are saved as `.json` files in the `captions/` folder and include:
 TODOs 
 - [ ] Allow modification of labels
 - [ ] Improve user-friendlyness
-
+- [ ] Clean prints
 
 ## 📚 Based On
 

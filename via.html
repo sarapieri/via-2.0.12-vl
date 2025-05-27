@@ -10542,26 +10542,55 @@ function _via_show_img(img_index, callback) {
   });
 }
 
-function get_text_for_frame(img_index, callback) {
-  var img_id = _via_image_id_list[img_index];     // e.g. "psg_2412582.jpg"
-  var image_id = img_id.split('.')[0];            // → "psg_2412582"
+async function get_text_for_frame(img_index, callback) {
+  var via_internal_img_id = _via_image_id_list[img_index]; // e.g. "psg_2412582.jpg" or "psg_2412582"
+  var image_psg_id = via_internal_img_id.split('.')[0];    // → "psg_2412582"
 
-  var caption = '';
+  // Attempt to fetch saved annotation
+  try {
+      const response = await fetch(`http://localhost:8500/check_annotation_exists/${image_psg_id}`);
+      if (response.ok) {
+          const data = await response.json();
+          if (data.exists && data.caption && data.caption.trim() !== "") {
+              console.log(`Using saved caption for ${image_psg_id}`);
+              if (typeof callback === 'function') {
+                  callback(data.caption);
+              }
+              show_message(`Loaded caption from pre-saved annotation.`, 1000);
+              return; // Exit if saved caption is used
+          } else {
+              if (data.exists) {
+                  console.log(`Saved annotation file found for ${image_psg_id}, but caption is empty. Falling back to GT.`);
+                  if (data.message) show_message(data.message, 3000); // Show message if file exists but no caption
+              } else {
+                  console.log(`No saved annotation for ${image_psg_id}. Falling back to GT.`);
+              }
+          }
+      } else {
+          console.warn(`Failed to check for existing annotation for ${image_psg_id}. Status: ${response.status}. Falling back to GT.`);
+      }
+  } catch (error) {
+      console.error(`Error fetching saved annotation for ${image_psg_id}:`, error, ". Falling back to GT.");
+  }
+
+  // Fallback to GT caption logic (original logic)
+  var gt_caption = '';
   if (annotations.length > 0) {
-    var entry = annotations.find(a => a.image_id === image_id);
-    if (entry) {
-      caption = entry.caption;
+    // The 'image_id' in your annotations JSON seems to be the psg_id without .jpg
+    var entry = annotations.find(a => a.image_id === image_psg_id);
+    if (entry && entry.caption) {
+      gt_caption = entry.caption;
     } else {
-      console.warn('No caption found for image_id:', image_id);
+      console.warn('No GT caption found for image_id:', image_psg_id);
     }
   } else {
-    console.warn('Annotations not loaded yet');
+    console.warn('GT Annotations not loaded yet, or empty.');
   }
 
   if (typeof callback === 'function') {
-    callback(caption);
-  }
-}
+    callback(gt_caption);
+   }
+ }
 
 
 // Asynchronous function to read text from a file
@@ -10602,22 +10631,6 @@ function _via_show_img_from_buffer(img_index) {
     _via_image_index = img_index;
     _via_image_id    = _via_image_id_list[_via_image_index];
     _via_current_image_filename = _via_img_metadata[_via_image_id].filename;
-
-    // Check if annotation exists for this image
-    var current_psg_id_for_check = _via_image_id.split('.')[0]; // e.g., "psg_XXXXXX"
-    if (current_psg_id_for_check) {
-        fetch(`http://localhost:8500/check_annotation_exists/${encodeURIComponent(current_psg_id_for_check)}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.exists) {
-                show_message(`Annotation for ${current_psg_id_for_check} already exists locally.`, 4000);
-            }
-        })
-        .catch(error => {
-            console.warn('Could not check for existing annotation:', error);
-            // Optionally show a less intrusive error or just log it
-        });
-    }
 
     _via_current_image_loaded = true;
 

@@ -376,9 +376,23 @@ def check_annotation_exists(image_psg_id):
 
     json_filename = f'captions/{image_psg_id}.json'
     if os.path.exists(json_filename):
-        return jsonify({"exists": True, "filename": json_filename}), 200
+        try:
+            with open(json_filename, 'r') as f:
+                data = json.load(f)
+            caption = data.get("caption") # Returns None if 'caption' key doesn't exist
+            if caption is not None:
+                return jsonify({"exists": True, "filename": json_filename, "caption": caption}), 200
+            else:
+                return jsonify({"exists": True, "filename": json_filename, "caption": None, "message": "File exists but no caption found."}), 200
+        except json.JSONDecodeError:
+            print(f"[ERROR] Failed to decode JSON from {json_filename}")
+            return jsonify({"exists": True, "filename": json_filename, "caption": None, "error": "File exists but is not valid JSON."}), 200
+        except Exception as e:
+            print(f"[ERROR] Failed to read {json_filename}: {e}")
+            return jsonify({"exists": True, "filename": json_filename, "caption": None, "error": f"Error reading file: {str(e)}"}), 200
     else:
         return jsonify({"exists": False}), 200
+
 
 @app.route('/get_mask_overlay/<psg_id>/<path:image_coco_path>', methods=['GET'])
 def get_mask_overlay_full(psg_id, image_coco_path):

@@ -6,3 +6,6 @@ utils.py
 
 # Ignore zip
 glamm_annotation_data.zip
+
+# Ignore captions 
+captions

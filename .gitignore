@@ -1,11 +1,16 @@
 # Ignore the data folder
 data/
 
-# Ignore the utils.py file
+# Ignore the utils
 utils.py
+convert_ann.py
 
 # Ignore zip
 glamm_annotation_data.zip
 
 # Ignore captions 
 captions
+
+# Ignore 
+new_gcg_coco_caption_gt.json
+new_gcg_coco_mask_gt.json

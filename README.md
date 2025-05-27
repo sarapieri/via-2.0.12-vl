@@ -112,6 +112,11 @@ Annotations are saved as `.json` files in the `captions/` folder and include:
 *   Referenced labels
 *   Masks in RLE format
 
+  
+Annotations can be shared as:
+> zip -r captions_{subset_id}.zip captions
+
+
 TODOs 
 - [ ] Allow modification of labels
 - [ ] Improve user-friendlyness

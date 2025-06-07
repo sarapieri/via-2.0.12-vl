@@ -184,36 +184,6 @@ except Exception as e:
     panoptic_data_store.setdefault("thing_class_names", [])
     panoptic_data_store.setdefault("stuff_class_names", [])
 
-def _get_normalized_categories_for_image_key(annotation_map_key_for_compute):
-    """
-    Helper function to get a list of normalized category names for a given image.
-    annotation_map_key_for_compute: The key for annotations_map (e.g., "000000xxxxxx.png")
-    """
-    image_annotation_entry = panoptic_data_store["annotations_map"].get(annotation_map_key_for_compute)
-    
-    category_names_list_raw = []
-
-    if image_annotation_entry:
-        segments_info = image_annotation_entry.get("segments_info", [])
-        category_id_map = panoptic_data_store["category_id_to_name_map"]
-
-        for seg_info in segments_info:
-            # We are interested in all category names present in segments_info
-            cat_id_from_json = seg_info.get("category_id")
-            category_name = "Unknown Category" # Default
-            if cat_id_from_json is not None:
-                category_name = category_id_map.get(cat_id_from_json, f"Unknown (ID:{cat_id_from_json})")
-            category_names_list_raw.append(category_name)
-    else:
-        print(f"[WARNING] _get_normalized_categories_for_image_key: No annotation entry found for key: {annotation_map_key_for_compute}.")
-        return [] # No labels to validate against
-
-    if not category_names_list_raw:
-        return []
-
-    normalized_names = normalize_labels(category_names_list_raw)
-    return normalized_names
-
 @app.route('/save_edited_text', methods=['POST'])
 def save_edited_text():
     """
@@ -307,60 +277,39 @@ def get_panoptic_categories(psg_id, image_coco_path):
         # Extract the base numeric filename (e.g., "000000286061") from the COCO path
         base_filename_no_ext = os.path.splitext(os.path.basename(image_coco_path))[0]
 
-        # Construct the key to find the image's annotation data using just the filename.png
+        # Construct the key for annotations_map
         annotation_map_key = f'{base_filename_no_ext}.png'
-        image_annotation_entry = panoptic_data_store["annotations_map"].get(annotation_map_key)
-        category_info_list_raw = [] # Will store {"id": s_id, "name": raw_category_name}
 
-        if image_annotation_entry:
-            segments_info = image_annotation_entry.get("segments_info", [])
-            category_id_map = panoptic_data_store["category_id_to_name_map"]
-
-            for seg_info in segments_info:
-                s_id = seg_info.get("id") # Get segment ID from JSON
-                cat_id_from_json = seg_info.get("category_id")
-                
-                category_name = "Unknown Category" # Default
-                if cat_id_from_json is not None:
-                    # Directly use the COCO category_id to look up its name
-                    category_name = category_id_map.get(cat_id_from_json, f"Unknown (ID:{cat_id_from_json})")
-                
-                if s_id is not None: # Only add if segment has an ID
-                    category_info_list_raw.append({"id": s_id, "name": category_name})
-        else:
-            print(f"[WARNING] No annotation entry found for key: {annotation_map_key} when fetching categories.")
-            category_info_list_raw.append({"id": -1, "name": f"No annotation found for {annotation_map_key}"})
+        # Get RLE segments and the ordered list of normalized labels.
+        # This ensures the label order is derived from the mask PNG, consistent with saving.
+        all_segment_details, final_normalized_labels = _get_rle_segments_and_labels_for_image(
+            annotation_map_key,
+            base_filename_no_ext
+        )
 
         normalized_category_info_list = []
-        if category_info_list_raw:
-            # Handle the "No annotation found" case separately to avoid trying to normalize it
-            if len(category_info_list_raw) == 1 and category_info_list_raw[0]["id"] == -1:
-                normalized_category_info_list = category_info_list_raw # Pass it through
-            else:
-                # Get the flat list of normalized names using the (now cache-aware) helper
-                # The order of labels from segments_info is preserved by normalize_labels.
-                normalized_names = _get_normalized_categories_for_image_key(annotation_map_key)
-                
-                # Store these as the "last displayed" for potential use by /save_edited_text
-                panoptic_data_store["last_displayed_image_key"] = annotation_map_key
-                panoptic_data_store["last_displayed_image_normalized_labels"] = normalized_names
-                print(f"[INFO] Stored labels for {annotation_map_key} as last displayed. {panoptic_data_store['last_displayed_image_normalized_labels']}")
-
-                # Associate segment IDs with the normalized names
-                # This assumes _get_normalized_categories_for_image_key processes segments in the same order
-                # as category_info_list_raw was built.
-                if len(normalized_names) == len(category_info_list_raw):
-                    for i, item in enumerate(category_info_list_raw):
-                        normalized_category_info_list.append({"id": item['id'], "name": normalized_names[i]})
-                else:
-                    # Fallback or error: lengths don't match, something is inconsistent
-                    print(f"[ERROR] Mismatch in length between raw category info ({len(category_info_list_raw)}) and normalized names ({len(normalized_names)}) for {annotation_map_key}. Serving raw.")
-                    normalized_category_info_list = category_info_list_raw # Serve raw as a fallback
+        if not all_segment_details and not final_normalized_labels:
+            # This case handles errors from _get_rle_segments_and_labels_for_image (e.g., no JSON annotation or mask file issue)
+            # Specific warnings would have been printed by the helper function.
+            print(f"[WARNING] get_panoptic_categories: No segment details or labels retrieved for {annotation_map_key}.")
+            normalized_category_info_list = [{"id": -1, "name": f"No annotation data or mask found for {annotation_map_key}"}]
+            # Update cache even in error case, with empty labels
+            panoptic_data_store["last_displayed_image_key"] = annotation_map_key
+            panoptic_data_store["last_displayed_image_normalized_labels"] = []
         else:
-            normalized_category_info_list = []
+            # Construct the response list from the segment details
+            normalized_category_info_list = [
+                {"id": seg_detail["mask_segment_id"], "name": seg_detail["normalized_label"]}
+                for seg_detail in all_segment_details
+            ]
+            
+            # Store these as the "last displayed" for potential use by /save_edited_text
+            panoptic_data_store["last_displayed_image_key"] = annotation_map_key
+            panoptic_data_store["last_displayed_image_normalized_labels"] = final_normalized_labels
+            print(f"[INFO] Stored labels for {annotation_map_key} as last displayed: {final_normalized_labels}")
+
         # Return the list of category names as JSON
         return jsonify({"categories": normalized_category_info_list})
-
     except Exception as e:
         print(f"[ERROR] Exception during category fetching for psg_id: {psg_id}, coco_path: {image_coco_path}: {e}")
         return jsonify({"error": str(e)}), 500
@@ -429,6 +378,7 @@ def get_mask_overlay_impl(psg_id, image_coco_path, selected_segment_id_str):
                 return jsonify({"error": "Invalid selected_segment_id format"}), 400
        
         if not os.path.exists(image_path):
+            print(f"Image not found at derived path: {image_path} (from psg_id: {psg_id})")
             return jsonify({"error": f"Image not found at derived path: {image_path} (from psg_id: {psg_id})"}), 404
         if not os.path.exists(mask_path):
             return jsonify({"error": f"Mask not found at: {mask_path} (derived from {image_coco_path})"}), 404
